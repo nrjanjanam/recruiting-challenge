@@ -1,0 +1,36 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# Logs
+logs/
+*.log
+
+# ChromaDB persistent data
+chromadb_data/
+
+# Test cache and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE/project files
+.vscode/
+.idea/
+*.swp
+
+# Jupyter/IPython
+.ipynb_checkpoints/
+
+# Misc
+*.bak
+*.tmp
