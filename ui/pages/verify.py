@@ -15,7 +15,11 @@ API_URL = "http://127.0.0.1:8000/v1/verify-profile"
 def verify_profile_api(uploaded_file):
     files = {"file": (uploaded_file.name, uploaded_file, uploaded_file.type)}
     response = requests.post(API_URL, files=files)
-    return response.json()
+    try:
+        return response.json()
+    except Exception as e:
+        st.error(f"Error parsing response: {e}")
+        return None
 
 st.set_page_config(page_title="Secure Boardroom Access", layout="centered", page_icon="🔐")
 

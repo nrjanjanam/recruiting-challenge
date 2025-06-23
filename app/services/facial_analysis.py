@@ -11,6 +11,7 @@ import cv2
 # Initialize the face analysis model once (global, for performance)
 face_app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
 face_app.prepare(ctx_id=0)
+
 logger = setup_logging()
 logger.remove()
 logger.add(
@@ -34,7 +35,7 @@ def analyze_face(image: Image.Image) -> dict:
     face = faces[0]
     embedding = face.embedding.tolist()  # 512D vector
     gender = face.sex  # F: female, M: male
-    logger.info(f"Face analysis successful. Raw gender value: {gender}")
+    logger.info(f"Face analysis successful.")
     return {
         "embedding": embedding,
         "gender": gender
