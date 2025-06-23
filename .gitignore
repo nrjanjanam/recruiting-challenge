@@ -31,10 +31,6 @@ Thumbs.db
 # Jupyter/IPython
 .ipynb_checkpoints/
 
-# ML/ DL Models
-models/*
-models/**
-
 # Misc
 *.bak
 *.tmp
