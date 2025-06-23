@@ -3,10 +3,12 @@ ChromaDB service for storing and querying facial embeddings.
 """
 import chromadb
 from chromadb.config import Settings
-from loguru import logger
+from app.services.logging_config import setup_logging
 from typing import Dict, Any, List, Optional
 from app.config import settings
 import os
+
+logger = setup_logging()
 
 class ChromaDBService:
     def __init__(self, collection_name: str = None) -> None:

@@ -17,7 +17,7 @@ def get_all_chromadb():
             result["embeddings"] = {k: (v.tolist() if isinstance(v, np.ndarray) else v) for k, v in result["embeddings"].items()}
         else:
             result["embeddings"] = [e.tolist() if isinstance(e, np.ndarray) else e for e in result["embeddings"]]
-    return result
+    return StandardResponse(success=True, data=result, error=None)
 
 @router.delete("/chromadb/delete-by-filename/{filename}", summary="Delete embedding by filename")
 def delete_embedding_by_filename(filename: str):
@@ -27,3 +27,13 @@ def delete_embedding_by_filename(filename: str):
         return StandardResponse(success=True, data={"deleted": filename}, error=None)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete embedding: {e}")
+
+@router.delete("/chromadb/clear", summary="Delete all face profiles in ChromaDB")
+def clear_chromadb():
+    try:
+        all_ids = chromadb_service.collection.get().get("ids", [])
+        if all_ids:
+            chromadb_service.collection.delete(ids=all_ids)
+        return StandardResponse(success=True, data={"message": "All face profiles deleted."}, error=None)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to clear ChromaDB: {e}")
