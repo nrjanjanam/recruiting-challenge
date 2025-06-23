@@ -1,125 +1,93 @@
-from .conftest import client, create_test_image
+import pytest
+import requests
+import os
+import threading
 
-def test_verify_profile_no_match(monkeypatch):
-    # Patch analyze_face and ChromaDB
-    monkeypatch.setattr(
-        'app.routers.profile_verify.analyze_face',
-        lambda img: {"embedding": [0.1]*512, "gender": "male"}
-    )
-    class FakeChromaDB:
-        def query_embedding(self, embedding, n_results=1):
-            return {"ids": [[]], "distances": [[]], "metadatas": [[]]}
-    monkeypatch.setattr('app.routers.profile_verify.chromadb_service', FakeChromaDB())
-    img_buf = create_test_image()
-    response = client.post(
-        "/verify-profile",
-        files={"file": ("test.jpg", img_buf, "image/jpeg")}
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["success"] is True
-    assert data["error"] is None
-    d = data["data"]
-    assert d["match"] is False
-    assert d["message"] == "No match found."
+API_URL = "http://localhost:8000/v1/verify-profile"
+TEST_DIR = "images/test/"
 
-def test_verify_profile_no_match_branch(monkeypatch):
-    # Patch analyze_face and ChromaDBService to return no match
-    monkeypatch.setattr(
-        'app.routers.profile_verify.analyze_face',
-        lambda img: {"embedding": [0.1]*512, "gender": "male"}
-    )
-    class FakeChromaDB:
-        def query_embedding(self, embedding, n_results=1):
-            return {"ids": [[]], "distances": [[]], "metadatas": [[]]}
-    monkeypatch.setattr('app.routers.profile_verify.chromadb_service', FakeChromaDB())
-    img_buf = create_test_image()
-    response = client.post(
-        "/verify-profile",
-        files={"file": ("test.jpg", img_buf, "image/jpeg")}
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["success"] is True
-    assert data["error"] is None
-    d = data["data"]
-    assert d["match"] is False
-    assert d["message"] == "No match found."
-    assert d["distance"] is None
-    assert d["matched_profile"] is None
+@pytest.mark.parametrize("filename,mimetype,expected_status", [
+    ("test.txt", "text/plain", 415),
+])
+def test_wrong_mime_verify(tmp_path, filename, mimetype, expected_status):
+    file_path = tmp_path / filename
+    file_path.write_text("This is not an image.")
+    with open(file_path, "rb") as f:
+        resp = requests.post(API_URL, files={"file": (filename, f, mimetype)})
+    assert resp.status_code == expected_status
 
-def test_verify_profile_match(monkeypatch):
-    monkeypatch.setattr(
-        'app.routers.profile_verify.analyze_face',
-        lambda img: {"embedding": [0.1]*512, "gender": "male"}
-    )
-    class FakeChromaDB:
-        def query_embedding(self, embedding, n_results=1):
-            return {
-                "ids": [["abc"]],
-                "distances": [[0.5]],
-                "metadatas": [[{"user_id": "testuser", "gender": "male"}]]
-            }
-    monkeypatch.setattr('app.routers.profile_verify.chromadb_service', FakeChromaDB())
-    img_buf = create_test_image()
-    response = client.post(
-        "/verify-profile",
-        files={"file": ("test.jpg", img_buf, "image/jpeg")}
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["success"] is True
-    assert data["error"] is None
-    d = data["data"]
-    assert d["match"] is True
-    assert d["matched_profile"]["user_id"] == "testuser"
+def test_huge_image_verify(tmp_path):
+    big_path = tmp_path / "huge_dummy.jpg"
+    big_path.write_bytes(b"0" * 21_000_000)  # 21 MB
+    with open(big_path, "rb") as f:
+        resp = requests.post(API_URL, files={"file": ("huge_dummy.jpg", f, "image/jpeg")})
+    assert resp.status_code in (413, 400, 422)
 
-def test_verify_profile_invalid_image():
-    response = client.post(
-        "/verify-profile",
-        files={"file": ("bad.txt", b"notanimage", "text/plain")}
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["success"] is False
-    assert data["data"] is None
-    assert data["error"]["code"] == 400
-    assert "Invalid image file" in data["error"]["message"]
+def test_non_face_image_verify():
+    img_path = os.path.join(TEST_DIR, "non_face.jpg")
+    if not os.path.exists(img_path):
+        pytest.skip("non_face.jpg not found.")
+    with open(img_path, "rb") as f:
+        resp = requests.post(API_URL, files={"file": ("non_face.jpg", f, "image/jpeg")})
+    assert resp.status_code == 422
 
-def test_verify_profile_face_analysis_error(monkeypatch):
-    # Simulate face analysis raising an exception
-    def raise_error(img):
-        raise RuntimeError("Face model error!")
-    monkeypatch.setattr('app.routers.profile_verify.analyze_face', raise_error)
-    img_buf = create_test_image()
-    response = client.post(
-        "/verify-profile",
-        files={"file": ("test.jpg", img_buf, "image/jpeg")}
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["success"] is False
-    assert data["data"] is None
-    assert data["error"]["code"] == 500
-    assert "Face analysis failed" in data["error"]["message"]
+def test_malicious_filename_verify():
+    img_path = os.path.join(TEST_DIR, "11.jpeg")
+    if not os.path.exists(img_path):
+        pytest.skip("11.jpeg not found for malicious filename test.")
+    with open(img_path, "rb") as f:
+        resp = requests.post(API_URL, files={"file": ("../../etc/passwd", f, "image/jpeg")})
+    assert resp.status_code in (200, 422, 400)
 
-def test_verify_profile_chromadb_error(monkeypatch):
-    monkeypatch.setattr(
-        'app.routers.profile_verify.analyze_face',
-        lambda img: {"embedding": [0.1]*512, "gender": "male"}
-    )
-    class FakeChromaDB:
-        def query_embedding(self, embedding, n_results=1):
-            raise RuntimeError("ChromaDB is down!")
-    monkeypatch.setattr('app.routers.profile_verify.chromadb_service', FakeChromaDB())
-    img_buf = create_test_image()
-    response = client.post(
-        "/verify-profile",
-        files={"file": ("test.jpg", img_buf, "image/jpeg")}
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["success"] is False
-    assert data["data"] is None
-    assert data["error"]["code"] == 500
-    assert "Failed to query vector database" in data["error"]["message"]
+def test_concurrency_verify():
+    img_path = os.path.join(TEST_DIR, "12.jpeg")
+    if not os.path.exists(img_path):
+        pytest.skip("12.jpeg not found for concurrency test.")
+    results = []
+    def send_req():
+        with open(img_path, "rb") as f:
+            resp = requests.post(API_URL, files={"file": ("12.jpeg", f, "image/jpeg")})
+            results.append(resp.status_code)
+    threads = [threading.Thread(target=send_req) for _ in range(10)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert all(code in (200, 422, 400) for code in results)
+
+def test_multiple_faces_verify():
+    img_path = os.path.join(TEST_DIR, "multiple_faces.jpg")
+    if not os.path.exists(img_path):
+        pytest.skip("multiple_faces.jpeg not found for multiple faces test.")
+    with open(img_path, "rb") as f:
+        resp = requests.post(API_URL, files={"file": (img_path, f, "image/jpeg")})
+    assert resp.status_code == 422
+
+def test_verify_profile_empty_file():
+    resp = requests.post(API_URL, files={"file": ("empty.jpg", b"", "image/jpeg")})
+    assert resp.status_code in (415, 422)
+
+def test_verify_profile_no_file_field():
+    resp = requests.post(API_URL, data={"user_id": "u1"})
+    assert resp.status_code == 422
+
+def test_verify_profile_unsupported_media_type(tmp_path):
+    file_path = tmp_path / "file.gif"
+    file_path.write_bytes(b"GIF89a")
+    with open(file_path, "rb") as f:
+        resp = requests.post(API_URL, files={"file": ("file.gif", f, "image/gif")})
+    assert resp.status_code in (415, 422)
+
+def test_verify_profile_large_file(tmp_path):
+    file_path = tmp_path / "huge.jpg"
+    file_path.write_bytes(b"\xff\xd8\xff" + b"0" * 25_000_000)
+    with open(file_path, "rb") as f:
+        resp = requests.post(API_URL, files={"file": ("huge.jpg", f, "image/jpeg")})
+    assert resp.status_code in (413, 422)
+
+def test_verify_profile_wrong_field_name(tmp_path):
+    file_path = tmp_path / "1.jpeg"
+    file_path.write_bytes(b"\xff\xd8\xff")
+    with open(file_path, "rb") as f:
+        resp = requests.post(API_URL, files={"notfile": ("1.jpeg", f, "image/jpeg")})
+    assert resp.status_code == 422

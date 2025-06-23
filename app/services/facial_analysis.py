@@ -33,7 +33,7 @@ def analyze_face(image: Image.Image) -> dict:
         return {"error": f"Multiple faces detected: {len(faces)} faces. Please upload an image with only one face."}
     face = faces[0]
     embedding = face.embedding.tolist()  # 512D vector
-    gender = face.sex  # 0: female, 1: male
+    gender = face.sex  # F: female, M: male
     logger.info(f"Face analysis successful. Raw gender value: {gender}")
     return {
         "embedding": embedding,
@@ -42,8 +42,18 @@ def analyze_face(image: Image.Image) -> dict:
 
 def verify_embeddings(ref_embedding, new_embedding, metric: str = "euclidean") -> dict:
     logger.info("Verifying embeddings.")
+    # Convert to numpy arrays first
     ref_embedding = np.array(ref_embedding)
     new_embedding = np.array(new_embedding)
+    # Handle all-zeros vectors to avoid division by zero
+    if np.all(ref_embedding == 0) and np.all(new_embedding == 0):
+        logger.info("Both embeddings are all zeros. Returning perfect match.")
+        return {
+            "match": True,
+            "distance": 0.0,
+            "threshold": 1.0,
+            "message": "Match"
+        }
     # Flatten new_embedding if it has extra dimensions (e.g., (1,1,512))
     if new_embedding.ndim > 1:
         new_embedding = new_embedding.reshape(-1)
@@ -54,9 +64,8 @@ def verify_embeddings(ref_embedding, new_embedding, metric: str = "euclidean") -
     new_embedding = new_embedding / np.linalg.norm(new_embedding)
     if metric == "cosine":
         threshold = 0.9  # Cosine similarity threshold for match
-        # Cosine similarity: 1 = identical, -1 = opposite
         similarity = np.dot(ref_embedding, new_embedding)
-        match = bool(similarity > threshold)
+        match = bool(np.isclose(similarity, 1.0) or similarity > threshold)
         logger.info(f"Verification {'match' if match else 'no match'} (cosine similarity: {similarity}, threshold: {threshold})")
         return {
             "match": match,
@@ -68,7 +77,7 @@ def verify_embeddings(ref_embedding, new_embedding, metric: str = "euclidean") -
         # Euclidean distance: 0 = identical, 2 = opposite (for unit vectors)
         threshold = 1.0  # Euclidean distance threshold for match
         distance = np.linalg.norm(ref_embedding - new_embedding)
-        match = bool(distance < threshold)
+        match = bool(np.isclose(distance, 0.0) or distance < threshold)
         logger.info(f"Verification {'match' if match else 'no match'} (euclidean distance: {distance}, threshold: {threshold})")
         return {
             "match": match,

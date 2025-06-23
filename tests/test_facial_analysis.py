@@ -29,27 +29,27 @@ def test_analyze_face_no_face(monkeypatch):
     assert result["error"] == "No face detected."
 
 def test_analyze_face_male_branch(monkeypatch):
-    # Patch the model to return a face with gender=1 (male)
+    # Patch the model to return a face with gender='M' (male)
     class FakeFace:
         embedding = type('emb', (), {'tolist': lambda self: [0.1]*512})()
-        sex = 1
+        sex = 'M'
     class FakeFaceApp:
         def get(self, img): return [FakeFace()]
     monkeypatch.setattr("app.services.facial_analysis.face_app", FakeFaceApp())
     img = Image.new('RGB', (160, 160), color='black')
     result = analyze_face(img)
-    assert result["gender"] == "male"
+    assert result["gender"] == 'M'
     assert len(result["embedding"]) == 512
 
 def test_analyze_face_female_branch(monkeypatch):
-    # Patch the model to return a face with gender=0 (female)
+    # Patch the model to return a face with gender='F' (female)
     class FakeFace:
         embedding = type('emb', (), {'tolist': lambda self: [0.1]*512})()
-        sex = 0
+        sex = 'F'
     class FakeFaceApp:
         def get(self, img): return [FakeFace()]
     monkeypatch.setattr("app.services.facial_analysis.face_app", FakeFaceApp())
     img = Image.new('RGB', (160, 160), color='black')
     result = analyze_face(img)
-    assert result["gender"] == "female"
+    assert result["gender"] == 'F'
     assert len(result["embedding"]) == 512
