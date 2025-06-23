@@ -1,0 +1,13 @@
+[theme]
+base = "light"
+primaryColor = "#228be6"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f7faff"
+textColor = "#222222"
+font = "sans serif"
+
+[custom_colors]
+main_blue = "#228be6"
+subtext_blue = "#1864ab"
+error_red = "#e74c3c"
+light_bg = "#f7faff"
