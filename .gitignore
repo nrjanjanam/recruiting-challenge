@@ -31,6 +31,58 @@ Thumbs.db
 # Jupyter/IPython
 .ipynb_checkpoints/
 
-# Misc
-*.bak
+# Deep learning/model files
+models/
+data/
+*.h5
+*.onnx
+*.pb
+*.ckpt
+*.weights
+
+# Temporary files
 *.tmp
+*.temp
+*.bak
+*.old
+*.orig
+*.sav
+*.npy
+*.npz
+
+# Test output
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.gif
+*.tiff
+*.webp
+# Dummy/test images
+*dummy_warmup.jpg
+
+# Python cache
+.mypy_cache/
+
+# System/Editor files
+*.sublime-workspace
+*.sublime-project
+*.code-workspace
+
+# Python egg
+*.egg-info/
+
+dist/
+build/
+
+# Misc
+*.env
+.env*
+
+# InsightFace cache
+.insightface/
+
+# DeepFaceAntiSpoofing cache
+age_gender_model.h5
+anti_spoofing_model.h5
+haarcascade_frontalface_default.xml
