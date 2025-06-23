@@ -1,0 +1,98 @@
+# conf/full_runtime.yaml  – drop this in your repo
+
+# ---------- GLOBAL SWITCHES ----------
+device: cpu
+optimize_transforms: true
+
+# ---------- READER (always required) ----------
+reader:
+  _target_: facetorch.analyzer.reader.ImageReader
+  device:   { _target_: torch.device, type: cpu }
+  optimize_transform: ${optimize_transforms}
+  transform:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: facetorch.transforms.SquarePad
+      - _target_: torchvision.transforms.Resize
+        size: [1080]
+        antialias: true
+
+# ---------- DETECTOR (RetinaFace) ----------
+detector:
+  _target_: facetorch.analyzer.detector.FaceDetector
+
+  downloader:
+    _target_: facetorch.downloader.DownloaderHuggingFace
+    file_id: 1eMuOdGkiNCOUTiEbKKoPCHGCuDgiKeNC
+    repo_id: tomas-gajarsky/facetorch-detector-retinaface
+    filename: model.pt
+    path_local: ${oc.env:HOME}/.cache/facetorch/detector/retinaface.pt  # writable!
+
+  device:   { _target_: torch.device, type: cpu }
+  reverse_colors: true
+
+  preprocessor:
+    _target_: facetorch.analyzer.detector.pre.DetectorPreProcessor
+    device:   { _target_: torch.device, type: cpu }
+    optimize_transform: ${optimize_transforms}
+    reverse_colors:     ${detector.reverse_colors}
+    transform:
+      _target_: torchvision.transforms.Compose
+      transforms:
+        - _target_: torchvision.transforms.Normalize
+          mean: [123.0, 117.0, 104.0]
+          std:  [  1.0,   1.0,   1.0]
+
+  postprocessor:
+    _target_: facetorch.analyzer.detector.post.PostRetFace
+    transform: None
+    device:   { _target_: torch.device, type: cpu }
+    optimize_transform: ${optimize_transforms}
+    confidence_threshold: 0.02
+    top_k: 5000
+    nms_threshold: 0.4
+    keep_top_k: 750
+    score_threshold: 0.6
+    prior_box:
+      _target_: facetorch.analyzer.detector.post.PriorBox
+      min_sizes: [[16, 32], [64, 128], [256, 512]]
+      steps: [8, 16, 32]
+      clip: false
+    variance: [0.1, 0.2]
+
+# ---------- PREDICTOR → VERIFY (AdaFace 12 M) ----------
+predictor:
+  verify:
+    _target_: facetorch.analyzer.predictor.FacePredictor
+    downloader:
+      _target_: facetorch.downloader.DownloaderHuggingFace
+      file_id: 1WI-mP_0mGW31OHfriPUsuFS_usYh_W8p
+      repo_id: tomas-gajarsky/facetorch-verify-adaface
+      filename: model.pt
+      path_local: ${oc.env:HOME}/.cache/facetorch/verify/adaface_ir101_webface12m.pt
+    device:   { _target_: torch.device, type: cpu }
+    preprocessor:
+      _target_: facetorch.analyzer.predictor.pre.PredictorPreProcessor
+      device:   { _target_: torch.device, type: cpu }
+      optimize_transform: ${optimize_transforms}
+      reverse_colors: true
+      transform:
+        _target_: torchvision.transforms.Compose
+        transforms:
+          - _target_: torchvision.transforms.Resize
+            size: [112, 112]
+            antialias: true
+          - _target_: torchvision.transforms.Normalize
+            mean: [0.5, 0.5, 0.5]
+            std:  [0.5, 0.5, 0.5]
+    postprocessor:
+      _target_: facetorch.analyzer.predictor.post.PostEmbedder
+      transform: None
+      device:   { _target_: torch.device, type: cpu }
+      optimize_transform: ${optimize_transforms}
+      labels: [abstract]
+
+# ---------- LOGGER (fileless, avoids /opt) ----------
+logger:
+  _target_: facetorch.logger.LoggerJsonFile
+  name: facetorch
