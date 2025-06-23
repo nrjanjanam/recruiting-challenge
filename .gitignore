@@ -31,6 +31,12 @@ Thumbs.db
 # Jupyter/IPython
 .ipynb_checkpoints/
 
+# Python DL/ ML Models
+models/*
+*.h5
+*.pkl
+*.pth
+
 # Misc
 *.bak
 *.tmp
