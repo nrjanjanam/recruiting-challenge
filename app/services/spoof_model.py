@@ -3,11 +3,11 @@ Singleton lazy loader for DeepFaceAntiSpoofing model for use across the app.
 """
 from deepface_antispoofing import DeepFaceAntiSpoofing
 from app.services.logging_config import setup_logging
-
+from fastapi import Request, HTTPException
 
 logger = setup_logging()
 
-def get__spoof_model():
+def load_spoof_model():
     try:
         _spoof_model = DeepFaceAntiSpoofing()
         logger.info("DeepFaceAntiSpoofing model initialized successfully.")
@@ -20,3 +20,14 @@ def get__spoof_model():
         _spoof_model = None
         logger.error(f"Failed to initialize DeepFaceAntiSpoofing: {e}")
     return _spoof_model
+
+def get_spoof_model(request: Request):
+    """
+    Dependency which returns the pre-loaded model from app.state
+    """
+    model = getattr(request.app.state, "spoof_model", None)
+    if model is None:
+        logger.error("Anti-spoofing model not loaded in app state.")
+        raise HTTPException(status_code=500, detail="Anti-spoofing model not loaded")
+    logger.info("Returning anti-spoofing model from app state. Model type: {}".format(type(model)))
+    return model

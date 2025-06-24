@@ -15,19 +15,23 @@ Response:
 - extra: dict (if provided)
 """
 
-from fastapi import APIRouter, File, UploadFile, HTTPException, Form, status
+from fastapi import APIRouter, File, UploadFile, HTTPException, Form, status, Depends
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 from PIL import Image
 from io import BytesIO
 from typing import List, Optional, Dict, Any
-from ..services.facial_analysis import analyze_face
+from app.services.facial_analysis import analyze_face
 from app.services.logging_config import setup_logging
 from app.services.chromadb_service import chromadb_service
 from app.services.standard_response import StandardResponse
+from app.services.spoof_model import get_spoof_model
 from app.config import settings
 import uuid
 from datetime import datetime, UTC
 import json
+from tempfile import NamedTemporaryFile
+import os
 
 router = APIRouter(prefix=f"/{settings.API_VERSION}", tags=["Profile"])
 logger = setup_logging()
@@ -58,39 +62,58 @@ async def create_profile(
     file: UploadFile = File(...),
     user_id: Optional[str] = Form(None),
     name: Optional[str] = Form(None),
-    extra: Optional[str] = Form(None)  # JSON string for arbitrary metadata
+    extra: Optional[str] = Form(None),  # JSON string for arbitrary metadata
+    spoof_model = Depends(get_spoof_model)
 ) -> StandardResponse:
     """Create a facial profile from an uploaded image and store it in ChromaDB."""
     logger.info("Received request to create profile")
+
+    contents = await file.read()
     # Check file size before reading (e.g., 10MB limit)
     MAX_SIZE = 10 * 1024 * 1024  # 10 MB
-    file.file.seek(0, 2)  # Seek to end
-    size = file.file.tell()
-    file.file.seek(0)
+    size = len(contents)
     if size > MAX_SIZE:
         logger.error(f"File too large: {size} bytes")
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail={"code": 413, "message": "File too large. Max 10MB allowed."})
     try:
-        img = Image.open(BytesIO(await file.read()))
+        img = Image.open(BytesIO(contents))
     except Exception as e:
         logger.error(f"Invalid image file: {e}", exc_info=True)
-        # Return 415 for unsupported media type (not an image)
         raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail={"code": 415, "message": "Unsupported file type. Please upload a valid image."})
     try:
         profile_data = analyze_face(img)
     except Exception as e:
         logger.error(f"Face analysis service error: {e}", exc_info=True)
-        
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"code": 500, "message": "Face analysis failed."})
     if "error" in profile_data:
         logger.warning(f"Face analysis failed: {profile_data['error']}")
-        
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"code": 422, "message": profile_data["error"]})
+
+    # Run anti-spoofing and age/gender analysis
+    with NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
+        tmp.write(contents)
+        tmp_path = tmp.name
+    try:
+        if not spoof_model:
+            raise HTTPException(status_code=500, detail={"code": 500, "message": "Spoof model not available."})
+        spoof_result = await run_in_threadpool(spoof_model.analyze_image, tmp_path)
+        logger.info(f"Anti-spoofing/age/gender result: {spoof_result}")
+        if spoof_result.get("dominant_spoof") != "Real":
+            logger.warning("Anti-spoofing check failed: not a real face")
+            raise HTTPException(status_code=400, detail={"code": 400, "message": "Image failed anti-spoofing check. Not a real face."})
+        # Extract age and dominant_gender for metadata
+        age = spoof_result.get("age")
+        dominant_gender = spoof_result.get("dominant_gender")
+    finally:
+        if 'tmp_path' in locals() and os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
     # Store embedding in ChromaDB
     embedding_id = str(uuid.uuid4())
     metadata = {
         "filename": file.filename,
-        "gender": profile_data["gender"],
+        "age": age,
+        "dominant_gender": dominant_gender,
         "created_at": datetime.now(UTC).isoformat(),
         "user_id": user_id,
         "name": name,
@@ -119,7 +142,9 @@ async def create_profile(
             **profile_data,
             "user_id": user_id,
             "name": name,
-            "extra": extra_dict
+            "extra": extra_dict,
+            "age": age,
+            "dominant_gender": dominant_gender
         },
         error=None
     )
