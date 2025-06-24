@@ -4,7 +4,6 @@
 
 This project is a robust, production-grade FastAPI and Streamlit application for multi-pose facial profile creation and verification. It guides users through a five-pose (frontal, left, right, up, down) selfie capture process, performs real-time quality control (QC) on each pose, and stores a high-quality, pose-diverse facial template for future verification. The system is designed for high security and accuracy, following best practices from NIST, ISO, and state-of-the-art face recognition research.
 
----
 
 ## Features
 
@@ -28,7 +27,6 @@ This project is a robust, production-grade FastAPI and Streamlit application for
   - Anti-spoofing (PAD) checks on every pose using DeepFace.
   - Multi-pose template reduces pose-variance error and increases verification accuracy.
 
----
 
 ## Installation & Setup
 
@@ -53,7 +51,6 @@ poetry run uvicorn app.main:app --reload
 poetry run streamlit run ui/landing.py
 ```
 
----
 
 ## Usage
 
@@ -63,9 +60,13 @@ poetry run streamlit run ui/landing.py
 4. **After all five are accepted,** your profile is created and you are redirected to the landing page.
 5. **Verification** can be performed via the verify page.
 
----
 
 ## API Endpoints
+
+### API Documentation
+`GET /docs`
+- Interactive Swagger UI for exploring and testing all available endpoints.
+- Automatically generated from FastAPI with detailed request/response schemas and descriptions.
 
 ### Per-Pose QC
 `POST /enroll/qc/{bucket}`
@@ -91,12 +92,6 @@ poetry run streamlit run ui/landing.py
 - Returns: `{match: bool, semantic_distance, euclidean_distance, cosine_similarity, message, matched_profile, ...}`
 - Uses vector search with distance metrics for robust matching
 
-### API Documentation
-`GET /docs`
-- Interactive Swagger UI for exploring and testing all available endpoints.
-- Automatically generated from FastAPI with detailed request/response schemas and descriptions.
-
----
 
 ## Project Structure
 
@@ -160,7 +155,7 @@ recruiting-challenge/
 - `conf/` — Configuration files
 - `chromadb_data/` — ChromaDB vector store data
 
----
+
 
 ## Key Implementation Details
 
@@ -176,7 +171,6 @@ recruiting-challenge/
   - Vector search in ChromaDB is used for candidate retrieval, but final match is confirmed using distance metrics (cosine/euclidean) for accuracy.
   - This avoids false positives (e.g., Tom Cruise matching with 2.jpeg) and ensures robust verification.
 - **UI/UX:**
-  - Sidebar and hamburger menu are hidden at all times for a clean look.
   - User is guided for each pose, and only allowed to proceed if QC passes.
   - After enrollment, user is redirected to the landing page.
 - **Security:**
@@ -184,8 +178,16 @@ recruiting-challenge/
   - Only real faces are accepted; spoofed or low-quality images are rejected.
 - **Testing:**
   - Comprehensive tests for facial analysis, embedding verification, and API endpoints.
+  - Test cases include with proper HTTP Codes returned:
+    - Face match (positive verification)
+    - No match (negative verification)
+    - No face detected
+    - Multiple faces detected
+    - Invalid file type (415)
+    - Oversized file (413)
+    - Malformed or missing fields (422)
 
----
+
 
 ## My Flow & Design Decisions
 
@@ -195,7 +197,7 @@ recruiting-challenge/
   - **Blur** (Laplacian variance)
   - **Brightness** (mean pixel value)
   - **Anti-spoofing** (PAD score)
-- Only after all five passes, the profile is created and stored.
+- Only after all three pass, the profile is created and stored.
 
 ### Matching & Verification
 - **Vector search** is used for fast candidate retrieval from ChromaDB.
@@ -204,10 +206,7 @@ recruiting-challenge/
 - **Anti-spoofing** is run on the probe image during verification; only real faces are accepted.
 
 ### UI/UX
-- Streamlit UI is designed for clarity and minimalism:
-  - Pose wheel visually tracks progress.
-  - Sidebar and hamburger menu are always hidden.
-  - User is redirected to landing page after successful enrollment.
+- Streamlit UI is designed for clarity and minimalism. User is redirected to landing page after successful enrollment. Proceed with enrollment first and then to verification.
 
 ### Lessons Learned & Challenges
 - **Side Portraits:**
@@ -217,19 +216,14 @@ recruiting-challenge/
   - Attempted to use yaw/pitch from InsightFace for pose correctness, but could not reliably distinguish left/right due to mirroring (both gave positive values). This check was not implemented in production.
 - **Embedding Model Exploration (AdaFace):**
   - Attempted to use AdaFace for facial profile embeddings for improved robustness, but was unable to configure it due to issues with the config file. Tried multiple sources and approaches, but could not proceed with integration.
+- **Other Approaches Tried:**
+  - Explored using additional facial attributes (age, emotion) for profile storage, but found them too variable for reliable identification.
+  - Considered merging biometric metadata with embeddings, but only stable features were ultimately used.
 - **Vector Search vs. Distance Metrics:**
   - Relying solely on vector search can lead to incorrect matches (e.g., Tom Cruise matched with 2.jpeg).
   - Final match confirmation using cosine/euclidean distance is essential for accuracy.
 - **Quality Control:**
-  - Strict QC on blur and brightness is critical for robust enrollment and verification.
-
-### Improvements & Future Work
-- Explore more advanced anti-spoofing models and liveness checks.
-- Add support for additional metadata and audit logging.
-- Enhance UI for accessibility and mobile devices.
-- Experiment with multi-modal biometrics (voice, document, etc.).
-
----
+  - Strict QC on blur and brightness is critical for robust enrollment and verification. Blur images didn't give good quality face profile (due to low quality embeddigs) which creates problems in verification process.
 
 ## Additional Design Notes & Decisions
 
@@ -256,6 +250,13 @@ recruiting-challenge/
   - Tested with diverse images (skin tones, genders, ages, hair types) for fairness; system shows equal pass rates.
   - Side portraits and celebrity images (e.g., Chris Hemsworth, Oprah Winfrey) tested for robustness.
   - Tilted photos are rejected by the spoof check as not real faces, improving security.
+
+## Improvements & Future Work
+- Add voice and eye prints - multimodal biometrics! DeepIrisV3 ONNX and 	ECAPA-TDNN on HF (speechbrain/spkrec-ecapa-voxceleb) store voice print and iris print respectively, makes the face profile stonger.
+- Maybe greyscale everything and work on it because the dress colors, skintone, eye color, haircolor is what people keep changing, the RGB embeddings may cause some restriction.
+- Find models that do quality checks (MagFace has ID quality magnitude vector) - so I can remove the basic norm check based blur and quality check
+- Add support for additional metadata prolly.
+---
 
 
 
