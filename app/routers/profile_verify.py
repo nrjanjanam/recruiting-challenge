@@ -63,7 +63,6 @@ async def verify_profile(
     try:
         logger.info("Analyzing face in uploaded image")
         profile_data = analyze_face(img)
-        logger.info(f"Face analysis result: {profile_data}")
     except Exception as e:
         logger.error(f"Face analysis service error: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"code": 500, "message": "Face analysis failed."})

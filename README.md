@@ -5,6 +5,14 @@
 This project is a robust, production-grade FastAPI and Streamlit application for multi-pose facial profile creation and verification. It guides users through a five-pose (frontal, left, right, up, down) selfie capture process, performs real-time quality control (QC) on each pose, and stores a high-quality, pose-diverse facial template for future verification. The system is designed for high security and accuracy, following best practices from NIST, ISO, and state-of-the-art face recognition research.
 
 
+## Demo Walkthrough
+
+A full walkthrough of the application is available on YouTube:
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/fuGnz6R5_Es" title="Validia Recruiting Challenge Demo" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+
+> Click [this link](https://youtu.be/fuGnz6R5_Es) to watch the demo video.
+
 ## Features
 
 - **Five-Pose Guided Enrollment:**
@@ -43,7 +51,7 @@ poetry install
 
 ### Run the Backend
 ```bash
-poetry run uvicorn app.main:app --reload
+poetry run uvicorn app.main:app
 ```
 
 ### Run the Streamlit UI
@@ -256,7 +264,6 @@ recruiting-challenge/
 - Maybe greyscale everything and work on it because the dress colors, skintone, eye color, haircolor is what people keep changing, the RGB embeddings may cause some restriction.
 - Find models that do quality checks (MagFace has ID quality magnitude vector) - so I can remove the basic norm check based blur and quality check
 - Add support for additional metadata prolly.
----
 
 
 
