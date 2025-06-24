@@ -7,7 +7,7 @@ from app.routers.register import register_routers
 from app.services.logging_config import setup_logging
 from app.services.openapi_schema import custom_openapi
 from app.services.port_utils import get_available_port
-from app.services.spoof_model import get__spoof_model
+from app.services.spoof_model import load_spoof_model
 import numpy as np
 import cv2
 from app.config import settings
@@ -30,7 +30,7 @@ host = settings.HOST
 
 @app.on_event("startup")
 def load_models():
-    _spoof_model = get__spoof_model()
+    _spoof_model = load_spoof_model()
     # Warm-up: create a dummy image file and call analyze_image
     dummy_img = np.ones((256, 256, 3), dtype=np.uint8) * 127  # Gray image
     dummy_path = "images/test/dummy_warmup.jpg"

@@ -12,13 +12,14 @@ Response:
 - matched_profile: dict (if match found, includes metadata)
 """
 
-from fastapi import APIRouter, Depends, Request, File, UploadFile, HTTPException, status
+from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status
 from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 from PIL import Image
 from io import BytesIO
 from typing import List, Optional, Dict, Any
-from ..services.facial_analysis import analyze_face, verify_embeddings
+from app.services.facial_analysis import analyze_face, verify_embeddings
+from app.services.spoof_model import get_spoof_model
 from app.services.logging_config import setup_logging
 from app.services.chromadb_service import chromadb_service
 from app.config import settings
@@ -29,16 +30,7 @@ import os
 router = APIRouter(prefix=f"/{settings.API_VERSION}", tags=["Profile"])
 logger = setup_logging()
 
-def get_spoof_model(request: Request):
-    """
-    Dependency which returns the pre-loaded model from app.state
-    """
-    model = getattr(request.app.state, "spoof_model", None)
-    if model is None:
-        logger.error("Anti-spoofing model not loaded in app state.")
-        raise HTTPException(status_code=500, detail="Anti-spoofing model not loaded")
-    logger.info("Returning anti-spoofing model from app state. Model type: {}".format(type(model)))
-    return model
+
 
 @router.post(
     "/verify-profile",
