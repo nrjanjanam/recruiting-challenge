@@ -9,9 +9,7 @@ This project is a robust, production-grade FastAPI and Streamlit application for
 
 A full walkthrough of the application is available on YouTube:
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/fuGnz6R5_Es" title="Validia Recruiting Challenge Demo" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
-
-> Click [this link](https://youtu.be/fuGnz6R5_Es) to watch the demo video.
+Click [this link](https://youtu.be/fuGnz6R5_Es) to watch the demo video.
 
 ## Features
 
