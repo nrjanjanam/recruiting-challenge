@@ -31,6 +31,9 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
+if st.button("Enroll", use_container_width=True):
+    st.switch_page("pages/enroll.py")
+
 if st.button("Start Verification", use_container_width=True):
     st.switch_page("pages/verify.py")
 
